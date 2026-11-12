@@ -1,0 +1,52 @@
+name: Compilar APK DaniM Auto Warp
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Instalar Android SDK 35
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar plataformas Android
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Compilar APK debug
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Publicar APK descargable
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DaniMAutoWarp-RC110-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
