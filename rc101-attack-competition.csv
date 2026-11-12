@@ -1,0 +1,9 @@
+join_s,side,window_start_s,detector_kick_count,detector_other_count,kick_bass_median,other_bass_median,kick_centroid_hz_median,other_centroid_hz_median,kick_attack_db_median,other_attack_db_median,kick_bass_rich_count,other_bass_rich_count,competing_bass_rich_attacks,verified_kick_identity,warp_authorized
+72.0,left,64.0,19,64,0.94957,0.23058,123.5864,822.96191,1.32803,3.06951,19,30,True,False,False
+72.0,right,72.0,18,62,0.96229,0.43164,121.90736,414.0478,1.2124,-0.5859,18,30,True,False,False
+120.0,left,112.0,37,66,0.93498,0.86527,199.18224,266.66267,1.42014,2.21584,37,66,True,False,False
+120.0,right,120.0,33,66,0.94579,0.8618,144.03256,292.64488,1.68687,2.2956,33,66,True,False,False
+144.0,left,136.0,36,66,0.9324,0.85204,153.46844,282.47696,1.53274,2.02928,36,66,True,False,False
+144.0,right,144.0,40,65,0.92838,0.85113,207.16046,320.97644,1.43796,2.30382,40,65,True,False,False
+456.0,left,448.0,37,65,0.91469,0.86863,144.81112,229.46185,2.34662,2.07324,37,65,True,False,False
+456.0,right,456.0,40,64,0.91108,0.8592,166.91557,281.52644,2.52266,1.95922,40,64,True,False,False
