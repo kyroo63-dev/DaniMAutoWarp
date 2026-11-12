@@ -97,15 +97,21 @@ object ContinuousAbPreview {
                 require(high - low <= Int.MAX_VALUE.toLong() / channels) {
                     "Intervalo de lectura original demasiado grande"
                 }
-                val sourceBlock = original.readFrames(low, (high - low).toInt())
-                check(sourceBlock.size >= (high - low) * channels) { "Bloque original incompleto" }
+                val sourceFrames = (high - low).toInt()
+                val sourceBlock = original.readFrames(low, sourceFrames)
+                check(sourceBlock.size >= sourceFrames * channels) { "Bloque original incompleto" }
                 for (i in 0 until n) {
                     // Latch the user selection once per frame for coherent stereo gain.
                     val selected = correctedSelected
                     val sourcePosition = sourcePositions[i] - low
+                    val firstFrame = sourcePosition.toInt()
+                    val nextFrame = (firstFrame + 1).coerceAtMost(sourceFrames - 1)
+                    val fraction = (sourcePosition - firstFrame).toFloat()
                     for (c in 0 until channels) {
-                        val originalValue = Pcm16SampleMath.interpolated(sourceBlock, channels, c, sourcePosition)
-                        val correctedValue = Pcm16SampleMath.normalized(correctedBlock[i * channels + c])
+                        val first = sourceBlock[firstFrame * channels + c]
+                        val next = sourceBlock[nextFrame * channels + c]
+                        val originalValue = first * (1f - fraction) + next * fraction
+                        val correctedValue = correctedBlock[i * channels + c]
                         val sample = crossfade.mix(originalValue, correctedValue, selected)
                         out[i * channels + c] = Pcm16SampleMath.encoded(sample)
                     }

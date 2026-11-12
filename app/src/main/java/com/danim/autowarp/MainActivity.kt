@@ -935,7 +935,7 @@ class MainActivity : ComponentActivity() {
                 val visible = audio.durationSeconds / zoom
                 val latest = currentMarkers
                 selected = MarkerTouchSelection.nearest(
-                    latest.map { it.sourceSeconds }, p.x, size.width,
+                    latest.map { it.sourceSeconds }, p.x, size.width.toFloat(),
                     viewStart.toDouble(), visible, 24.dp.toPx()
                 )
                 if (selected >= 0) {
@@ -949,7 +949,7 @@ class MainActivity : ComponentActivity() {
             if (manual && selected in 1 until latest.lastIndex && audio != null && size.width > 0f) {
                 val candidate = MarkerDragPrecision.proposedSource(
                     dragAnchorTime, dragTouchStartX, change.position.x,
-                    size.width, audio.durationSeconds / zoom,
+                    size.width.toFloat(), audio.durationSeconds / zoom,
                     latest[selected - 1].sourceSeconds, latest[selected + 1].sourceSeconds
                 )
                 if (candidate != null && kotlin.math.abs(candidate - latest[selected].sourceSeconds) >= 0.000001) {

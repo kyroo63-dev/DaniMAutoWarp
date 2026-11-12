@@ -85,7 +85,7 @@ class ReviewActivity : ComponentActivity() {
                     Canvas(Modifier.fillMaxWidth().height(120.dp).background(Color(0xFF15212D),RoundedCornerShape(12.dp))) {
                         val mid = size.height/2
                         if(samples.isNotEmpty()) samples.forEachIndexed { i, v ->
-                            val x = i.toFloat()/max(1,samples.size-1)*size.width
+                            val x = i.toFloat() / maxOf(1, samples.size - 1) * size.width
                             drawLine(Color(0xFFB56BFF),Offset(x,mid-v*mid*0.9f),Offset(x,mid+v*mid*0.9f),1.5f)
                         }
                     }
