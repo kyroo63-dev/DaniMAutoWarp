@@ -9,6 +9,6 @@ class BeatgridCsvTest {
         val csv = BeatgridCsv.encode(result, listOf(TransientEvent(0.12, TransientKind.HI_HAT, 0.8)))
         assertTrue(csv.contains("beat,1,0.000000"))
         assertTrue(csv.contains("beat,4,1.500000"))
-        assertTrue(csv.contains("transient,1,0.120000,,,HI_HAT,0.8000"))
+        assertTrue(csv.lineSequence().any { it == "transient,1,0.120000,,,,HI_HAT,0.8000" })
     }
 }

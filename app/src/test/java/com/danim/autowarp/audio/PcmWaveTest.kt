@@ -18,8 +18,8 @@ class PcmWaveTest {
         val b=ByteArrayOutputStream()
         fun p16(v:Int){b.write(v and 255);b.write(v ushr 8 and 255)}
         fun p32(v:Int){p16(v and 65535);p16(v ushr 16)}
-        b.write("RIFF".toByteArray());p32(39);b.write("WAVEfmt ".toByteArray());p32(16);p16(1);p16(1);p32(48000);p32(144000);p16(3);p16(24)
-        b.write("data".toByteArray());p32(3);b.write(byteArrayOf(0,0,64))
+        b.write("RIFF".toByteArray());p32(40);b.write("WAVEfmt ".toByteArray());p32(16);p16(1);p16(1);p32(48000);p32(144000);p16(3);p16(24)
+        b.write("data".toByteArray());p32(3);b.write(byteArrayOf(0,0,64));b.write(0) // Pad the odd-sized RIFF chunk.
         val audio=PcmWave.read(ByteArrayInputStream(b.toByteArray()))
         assertEquals(0.5f,audio.samples[0],0.00001f)
     }

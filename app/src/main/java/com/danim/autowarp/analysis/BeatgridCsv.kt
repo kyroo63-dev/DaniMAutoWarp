@@ -18,7 +18,7 @@ object BeatgridCsv {
             appendLine(String.format(Locale.US, "beat,%d,%.6f,%.4f,%d,%d,,", index + 1, time, bpm, bar, beatInBar))
         }
         events.sortedBy { it.seconds }.forEachIndexed { index, event ->
-            appendLine(String.format(Locale.US, "transient,%d,%.6f,,,,'%s',%.4f", index + 1, event.seconds, event.kind.name, event.confidence.coerceIn(0.0, 1.0)))
+            appendLine(String.format(Locale.US, "transient,%d,%.6f,,,,%s,%.4f", index + 1, event.seconds, event.kind.name, event.confidence.coerceIn(0.0, 1.0)))
         }
     }
 }
