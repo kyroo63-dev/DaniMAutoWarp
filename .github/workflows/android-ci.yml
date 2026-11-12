@@ -1,0 +1,44 @@
+name: Android build and tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      # Kotlin CLI is not installed on GitHub-hosted runners by default.
+      # Run JVM tests with Gradle instead of relying on a missing kotlinc executable.
+      - name: Android unit tests
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
+      - name: Assemble debug APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: DaniMAutoWarp-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
