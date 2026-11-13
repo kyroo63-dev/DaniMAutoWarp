@@ -1066,9 +1066,10 @@ class MainActivity : ComponentActivity() {
             val columns = size.width.toInt().coerceIn(1, 4096)
             for (column in 0 until columns) {
                 val from = (column.toLong() * samples.size / columns).toInt()
-                val until = (((column.toLong()+1) * samples.size + columns - 1) / columns).toInt().coerceAtMost(samples.size)
+                val endExclusive = (((column.toLong() + 1) * samples.size + columns - 1) / columns)
+                    .toInt().coerceAtMost(samples.size)
                 var peak = 0f
-                for (i in from until) {
+                for (i in from until endExclusive) {
                     val amplitude = samples[i]
                     if (amplitude.isFinite()) peak = maxOf(peak, abs(amplitude).coerceIn(0f, 1f))
                 }
