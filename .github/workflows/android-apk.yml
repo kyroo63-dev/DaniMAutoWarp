@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - "app/**"
+      - "test-rc*.py"
+      - "tests/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradle.properties"
@@ -33,14 +35,28 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Compilar APK debug
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Verificar configuración de RC124
+        run: python3 test-rc124-ui.py
+
+      - name: Compilar APK debug y ejecutar pruebas unitarias JVM
+        run: gradle --no-daemon --stacktrace :app:assembleDebug :app:testDebugUnitTest
 
       - name: Publicar APK descargable
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: DaniMAutoWarp-RC110-debug-apk
+          name: DaniMAutoWarp-RC124-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Publicar informes de pruebas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DaniMAutoWarp-RC124-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          if-no-files-found: ignore
           retention-days: 14
