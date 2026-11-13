@@ -1377,7 +1377,7 @@ private fun DashboardHeader(screen: String, back: () -> Unit, projectEnabled: Bo
                     Text("DaniM", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.Black, fontStyle = italic)
                     Text("Auto Warp", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black, fontStyle = italic, maxLines = 1)
                 }
-                Text("RC125", Modifier.align(Alignment.BottomEnd).padding(bottom = 4.dp)
+                Text("RC126", Modifier.align(Alignment.BottomEnd).padding(bottom = 4.dp)
                     .background(OrangeGradient, RoundedCornerShape(5.dp)).padding(horizontal = 4.dp, vertical = 2.dp),
                     color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Black)
             } else {
