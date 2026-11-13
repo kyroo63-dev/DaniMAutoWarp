@@ -12,8 +12,15 @@ data class WaveformPeaks(val framesPerBucket: Int, val peaks: FloatArray)
 object WaveformPeakCache {
     fun build(source: PcmFrameSource, maxBuckets: Int = 32_768): WaveformPeaks {
         require(maxBuckets in 256..1_000_000)
-        val bucketSize = ((source.frameCount + maxBuckets - 1) / maxBuckets).coerceAtLeast(1).toInt()
-        val count = ((source.frameCount + bucketSize - 1) / bucketSize).toInt()
+        require(source.frameCount >= 0L) { "Número de fotogramas negativo" }
+        require(source.channels > 0 && source.sampleRate > 0) { "Formato PCM no válido" }
+        // Overflow-safe ceiling division, including very long recordings.
+        val bucketSizeLong = source.frameCount / maxBuckets +
+            if (source.frameCount % maxBuckets == 0L) 0L else 1L
+        require(bucketSizeLong <= Int.MAX_VALUE) { "Audio demasiado largo para el tamaño de caché" }
+        val bucketSize = bucketSizeLong.coerceAtLeast(1L).toInt()
+        val count = (source.frameCount / bucketSize +
+            if (source.frameCount % bucketSize == 0L) 0L else 1L).toInt()
         val peaks = FloatArray(count)
         var first = 0L
         var bucket = 0
@@ -50,6 +57,8 @@ object WaveformPeakCache {
         val bucketSize = input.readInt()
         val count = input.readInt()
         require(bucketSize > 0 && count in 0..1_000_000)
-        WaveformPeaks(bucketSize, FloatArray(count) { input.readFloat() })
+        WaveformPeaks(bucketSize, FloatArray(count) {
+            input.readFloat().also { peak -> require(peak.isFinite() && peak >= 0f) { "Pico de audio no válido" } }
+        })
     }
 }
