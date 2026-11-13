@@ -11,8 +11,8 @@ android {
         applicationId = "com.danim.autowarp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 164
-        versionName = "4.0.0-rc124"
+        versionCode = 165
+        versionName = "4.0.0-rc125"
     }
     buildFeatures { compose = true }
     compileOptions {
