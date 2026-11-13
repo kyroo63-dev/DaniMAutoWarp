@@ -39,11 +39,11 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private val BG = Color(0xFF080D13)
-private val CARD = Color(0xFF121C27)
-private val TEAL = Color(0xFFB56BFF)
-private val ORANGE = Color(0xFFFFA45B)
-private val MUTED = Color(0xFF91A2B4)
+private val BG = Color(0xFF05080B)
+private val CARD = Color(0xFF0D1218)
+private val TEAL = Color(0xFFFF850B)
+private val ORANGE = Color(0xFFFF850B)
+private val MUTED = Color(0xFFB5BBC5)
 private val PINK = Color(0xFFFF617B)
 
 class MainActivity : ComponentActivity() {
@@ -343,16 +343,25 @@ class MainActivity : ComponentActivity() {
 
     MaterialTheme(colorScheme = darkColorScheme(primary = TEAL, secondary = ORANGE, background = BG, surface = CARD)) {
         Column(Modifier.fillMaxSize().background(BG).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("DaniM", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
-                    Text("VINYL GRID STUDIO  /  PRO AUDIO WARP", color = TEAL, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
+            Row(Modifier.fillMaxWidth().background(Color.Black, RoundedCornerShape(14.dp)).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("☰", color = Color.White, fontSize = 23.sp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("DaniM", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                    Text("Auto Warp", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                 }
-                Surface(color = Color(0xFF18352F), shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF24685D))) {
-                    Text("RC105", Modifier.padding(horizontal = 12.dp, vertical = 7.dp), color = TEAL, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Surface(color = ORANGE, shape = RoundedCornerShape(7.dp)) {
+                    Text("RC124", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
-            OutlinedButton(onClick = { ctx.startActivity(android.content.Intent(ctx, ReviewActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("REVISAR BOMBOS · 64 ATAQUES") }
+            Row(Modifier.fillMaxWidth().background(Color(0xFF0B1118), RoundedCornerShape(13.dp)).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                listOf("⌂\nInicio", "⇄\nProcesar", "▤\nLote", "⚙\nAjustes").forEachIndexed { i, label ->
+                    val active = i == 0
+                    Surface(modifier = Modifier.weight(1f), color = if (active) Color(0xFF45210A) else Color.Transparent, shape = RoundedCornerShape(10.dp), border = if (active) androidx.compose.foundation.BorderStroke(1.dp, ORANGE) else null) {
+                        Text(label, Modifier.padding(vertical = 9.dp), color = if (active) ORANGE else MUTED, fontSize = 13.sp, textAlign = TextAlign.Center, lineHeight = 21.sp)
+                    }
+                }
+            }
+            OutlinedButton(onClick = { ctx.startActivity(android.content.Intent(ctx, ReviewActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("REVISAR BOMBOS · ${result?.kickTimes?.size ?: 0} ATAQUES") }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 DashboardMetric("BPM", result?.let { fmt(it.bpm, 2) } ?: "—", TEAL, Modifier.weight(1f))
                 DashboardMetric("DETECCIÓN", result?.let { "${(it.confidence*100).roundToInt()}%" } ?: "—", Color.White, Modifier.weight(1f))
@@ -360,11 +369,11 @@ class MainActivity : ComponentActivity() {
             }
             Card(colors = CardDefaults.cardColors(containerColor = CARD), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF263544))) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("PISTA DE AUDIO", color = MUTED, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    Text("♫  Importar audio", color = ORANGE, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(fileName, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(status, color = MUTED, fontSize = 11.sp)
                     Button(onClick = { open.launch(arrayOf("audio/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(13.dp), colors = ButtonDefaults.buttonColors(containerColor = TEAL, contentColor = BG)) {
-                        Text("＋  IMPORTAR AUDIO", fontWeight = FontWeight.ExtraBold, letterSpacing = 0.7.sp)
+                        Text("♫  SELECCIONAR MP3 · WAV · AIFF", fontWeight = FontWeight.ExtraBold, letterSpacing = 0.2.sp)
                     }
                     Text("WAV  ·  MP3  ·  AIFF PCM", color = Color(0xFF64788B), fontSize = 9.sp, letterSpacing = 1.sp)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -372,6 +381,25 @@ class MainActivity : ComponentActivity() {
                         OutlinedButton(onClick = { importProject.launch(arrayOf("application/json", "text/plain", "*/*")) }, enabled = pcmCacheFile != null && !busy, modifier = Modifier.weight(1f)) { Text("ABRIR PROYECTO", fontSize = 10.sp) }
                     }
                     Text("Primero importa el audio original; después abre su proyecto .json. El proyecto no incluye audio.", color = MUTED, fontSize = 10.sp)
+                }
+            }
+            // RC112: waveform preview uses decoded real audio peaks, never a simulated correction.
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF080C11)), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF27313C))) {
+                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("Original (desfase)", color = Color(0xFFD1D5DC), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    ReferenceWaveform(waveformPeaks, Color(0xFFA9ADB5))
+                    Text("Corregido (warp)", color = ORANGE, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    if (warpedCache != null) {
+                        Text("Render corregido disponible para escucha A/B", color = MUTED, fontSize = 11.sp)
+                    } else {
+                        Box(Modifier.fillMaxWidth().height(49.dp).background(Color(0xFF10151C), RoundedCornerShape(7.dp)), contentAlignment = Alignment.Center) {
+                            Text("Pendiente de renderizar · no se simula una onda corregida", color = MUTED, fontSize = 10.sp, textAlign = TextAlign.Center)
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { audition(false) }, enabled = audioInfo != null && !playing && !busy, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ORANGE, contentColor = Color.Black), shape = RoundedCornerShape(11.dp)) { Text("▶ Original", fontSize = 12.sp) }
+                        OutlinedButton(onClick = { audition(true) }, enabled = audioInfo != null && markers.size >= 2 && !playing && !busy, modifier = Modifier.weight(1f), shape = RoundedCornerShape(11.dp)) { Text("▶ Corregido", fontSize = 12.sp) }
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -388,11 +416,86 @@ class MainActivity : ComponentActivity() {
                         } catch (e: Exception) { status = "Error de análisis: ${e.message}" }
                         finally { busy = false }
                     }
-                }, enabled = audioInfo != null && !busy, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(13.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C3440), contentColor = TEAL)) {
-                    Text(if (busy) "PROCESANDO…" else "✦  AUTO WARP", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }, enabled = audioInfo != null && !busy, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(13.dp), colors = ButtonDefaults.buttonColors(containerColor = ORANGE, contentColor = Color.Black)) {
+                    Text(if (busy) "PROCESANDO…" else "⚙  PROCESAR (AUTO)", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                 }
                 OutlinedButton(onClick = { manual = !manual }, enabled = !busy, modifier = Modifier.height(48.dp), shape = RoundedCornerShape(13.dp), border = androidx.compose.foundation.BorderStroke(1.dp, if (manual) ORANGE else Color(0xFF405365))) {
                     Text(if (manual) "MANUAL ON" else "MANUAL", color = if (manual) ORANGE else Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            // RC113: advanced dashboard is populated exclusively by real analysis results.
+            result?.let { analysis ->
+                var advancedTab by remember { mutableIntStateOf(0) }
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF090D12)),
+                    shape = RoundedCornerShape(17.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D))
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                        Text("Procesamiento avanzado", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            listOf("Análisis", "Warp", "Beatgrid", "Exportar").forEachIndexed { tab, label ->
+                                val selected = advancedTab == tab
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { advancedTab = tab },
+                                    shape = RoundedCornerShape(9.dp),
+                                    color = if (selected) ORANGE else Color(0xFF121820),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) ORANGE else Color(0xFF27323D))
+                                ) {
+                                    Text(label, Modifier.padding(vertical = 12.dp), textAlign = TextAlign.Center,
+                                        color = if (selected) Color.Black else Color.White, fontSize = 11.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                                }
+                            }
+                        }
+                        when (advancedTab) {
+                            0 -> {
+                                Text("Seguimiento de velocidad (BPM)", color = Color.White, fontWeight = FontWeight.Bold)
+                                AdvancedTempoGraph(if (analysis.barTempoCurve.size >= 2) analysis.barTempoCurve else analysis.tempoCurve)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    DashboardMetric("BPM medio", fmt(analysis.bpm, 2), ORANGE, Modifier.weight(1f))
+                                    DashboardMetric("Variación", "±${fmt(if (analysis.bpm > 0.0) 100.0 * maxOf(abs(analysis.tempoMaxBpm-analysis.bpm), abs(analysis.bpm-analysis.tempoMinBpm)) / analysis.bpm else 0.0, 2)} %", Color.White, Modifier.weight(1f))
+                                }
+                                Text("Detección de transitorios", color = Color.White, fontWeight = FontWeight.Bold)
+                                AdvancedTransientGraph(waveformPeaks, analysis.kickTimes, analysis.otherTransients, audioInfo?.durationSeconds ?: 0.0)
+                                Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                                    listOf("Bombo" to Color(0xFFFF674C), "Caja" to Color(0xFF087FFF), "Percusión" to Color(0xFFFFB000)).forEach { (name, tint) ->
+                                        Text("● $name", color = tint, fontSize = 10.sp)
+                                    }
+                                }
+                                Text("La onda y los marcadores proceden del audio importado y del análisis.", color = MUTED, fontSize = 10.sp)
+                            }
+                            1 -> {
+                                Text("Calidad de render", color = Color.White, fontWeight = FontWeight.Bold)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(Triple("Rápido", WarpQuality.FAST, "Render ágil"),
+                                        Triple("Equilibrado", WarpQuality.BALANCED, "Calidad media"),
+                                        Triple("Alta calidad", WarpQuality.HIGH, "Render detallado")).forEach { (label, quality, description) ->
+                                        OutlinedButton(onClick = { warpQuality = quality; warpedCache = null },
+                                            modifier = Modifier.weight(1f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (warpQuality == quality) ORANGE else Color(0xFF35404B)),
+                                            contentPadding = PaddingValues(horizontal = 3.dp, vertical = 10.dp)) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text(label, color = if (warpQuality == quality) ORANGE else Color.White, fontSize = 11.sp)
+                                                Text(description, color = MUTED, fontSize = 8.sp, textAlign = TextAlign.Center)
+                                            }
+                                        }
+                                    }
+                                }
+                                Text("El modo cambia la calidad del motor de render; no modifica los marcadores automáticamente.", color = MUTED, fontSize = 10.sp)
+                            }
+                            2 -> {
+                                Text("Beatgrid detectado: ${analysis.beatTimes.size} pulsos", color = Color.White)
+                                Text("Marcadores de warp: ${markers.size}", color = MUTED)
+                                Text("Ajusta los marcadores en el editor manual situado más abajo.", color = MUTED, fontSize = 11.sp)
+                            }
+                            else -> {
+                                Text("Exportación de audio", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Utiliza los controles de exportación inferiores para renderizar y guardar el resultado real.", color = MUTED, fontSize = 11.sp)
+                            }
+                        }
+                    }
                 }
             }
             result?.let { r ->
@@ -897,6 +1000,102 @@ class MainActivity : ComponentActivity() {
     Column { Text(label, color = MUTED, fontSize = 8.sp, fontWeight = FontWeight.Bold); Text(value, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
 }
 @Composable private fun Dot(color: Color) { Box(Modifier.size(7.dp).background(color, CircleShape)) }
+/** A compact real-peak waveform matching the reference's symmetrical silhouette. */
+@Composable private fun ReferenceWaveform(peaks: WaveformPeaks?, tint: Color) {
+    Canvas(Modifier.fillMaxWidth().height(58.dp).background(Color(0xFF10151C), RoundedCornerShape(7.dp))) {
+        val samples = peaks?.peaks ?: return@Canvas
+        if (samples.isEmpty()) return@Canvas
+        val width = size.width
+        val mid = size.height / 2f
+        val columns = (width / 2.5f).toInt().coerceIn(1, 4096)
+        for (i in 0 until columns) {
+            val from = i.toLong() * samples.size / columns
+            val to = ((i + 1).toLong() * samples.size / columns).coerceAtMost(samples.size.toLong())
+            var amplitude = 0f
+            for (j in from.toInt() until maxOf(from.toInt() + 1, to.toInt()).coerceAtMost(samples.size)) {
+                val sample = samples[j]
+                if (sample.isFinite()) amplitude = maxOf(amplitude, kotlin.math.abs(sample))
+            }
+            val h = (amplitude.coerceIn(0f, 1f) * mid * .92f).coerceAtLeast(1f)
+            val x = (i + .5f) / columns * width
+            drawLine(tint, Offset(x, mid - h), Offset(x, mid + h), strokeWidth = 1.6.dp.toPx())
+        }
+        drawLine(Color(0xFFFFE1B6), Offset(width / 2f, 0f), Offset(width / 2f, size.height), strokeWidth = 1.dp.toPx())
+    }
+}
+
+// RC114: plots the actual timeline, not the index of a potentially irregular sample.
+@Composable private fun AdvancedTempoGraph(points: List<Pair<Double, Double>>) {
+    Canvas(Modifier.fillMaxWidth().height(125.dp).background(Color(0xFF070A0E), RoundedCornerShape(9.dp))) {
+        for (i in 0..4) {
+            val y = size.height * i / 4f
+            drawLine(Color(0xFF26323E), Offset(0f, y), Offset(size.width, y), 0.8.dp.toPx())
+        }
+        for (i in 0..8) {
+            val x = size.width * i / 8f
+            drawLine(Color(0xFF26323E), Offset(x, 0f), Offset(x, size.height), 0.8.dp.toPx())
+        }
+        val valid = points.filter { it.first.isFinite() && it.second.isFinite() && it.second > 0.0 }
+            .sortedBy { it.first }
+        if (valid.size >= 2) {
+            val minTime = valid.first().first
+            val duration = (valid.last().first - minTime).coerceAtLeast(0.001)
+            val low = valid.minOf { it.second } - 0.3
+            val span = (valid.maxOf { it.second } - low + 0.3).coerceAtLeast(0.6)
+            for (i in 1 until valid.size) {
+                val a = Offset(((valid[i-1].first-minTime)/duration).toFloat()*size.width,
+                    size.height*(1f-((valid[i-1].second-low)/span).toFloat()))
+                val b = Offset(((valid[i].first-minTime)/duration).toFloat()*size.width,
+                    size.height*(1f-((valid[i].second-low)/span).toFloat()))
+                drawLine(ORANGE, a, b, 1.7.dp.toPx())
+            }
+        }
+    }
+}
+
+// RC115: real cached audio waveform, colored cyan/blue, with analyzed transient markers.
+@Composable private fun AdvancedTransientGraph(
+    waveform: WaveformPeaks?, kicks: List<Double>, others: List<TransientEvent>, duration: Double
+) {
+    Canvas(Modifier.fillMaxWidth().height(110.dp).background(Color(0xFF070A0E), RoundedCornerShape(9.dp))) {
+        if (duration <= 0.0 || !duration.isFinite()) return@Canvas
+        val mid = size.height / 2f
+        val samples = waveform?.peaks
+        if (samples != null && samples.isNotEmpty()) {
+            // Downsample for screen width, taking the maximum amplitude per pixel to preserve attacks.
+            val columns = size.width.toInt().coerceIn(1, 4096)
+            for (column in 0 until columns) {
+                val from = (column.toLong() * samples.size / columns).toInt()
+                val endExclusive = (((column.toLong() + 1) * samples.size + columns - 1) / columns)
+                    .toInt().coerceAtMost(samples.size)
+                var peak = 0f
+                for (i in from until endExclusive) {
+                    val amplitude = samples[i]
+                    if (amplitude.isFinite()) peak = maxOf(peak, abs(amplitude).coerceIn(0f, 1f))
+                }
+                val height = peak * mid * 0.87f
+                val tint = if (column % 4 < 2) Color(0xFF02CDE7) else Color(0xFF1266EE)
+                // Map the sampled columns back to the full canvas width.
+                val x = (column + 0.5f) * size.width / columns
+                drawLine(tint, Offset(x, mid-height), Offset(x, mid+height), (size.width / columns).coerceAtLeast(1f))
+            }
+        }
+        // Events are measured onset times, not fabricated peaks.
+        val events = kicks.map { it to Color(0xFFFF674C) } +
+            others.map { event ->
+                event.seconds to when (event.kind) {
+                    TransientKind.SNARE -> Color(0xFF087FFF)
+                    TransientKind.PERCUSSION, TransientKind.HI_HAT -> Color(0xFFFFB000)
+                    TransientKind.KICK -> Color(0xFFFF674C)
+                }
+            }
+        events.filter { it.first.isFinite() && it.first in 0.0..duration }.forEach { (seconds, tint) ->
+            val x = (seconds / duration).toFloat() * size.width
+            drawLine(tint, Offset(x, mid-34.dp.toPx()), Offset(x, mid+34.dp.toPx()), 1.dp.toPx())
+        }
+    }
+}
+
 @Composable private fun TempoCurve(points: List<Pair<Double, Double>>) {
     Canvas(Modifier.fillMaxWidth().height(38.dp)) {
         if (points.size < 2) return@Canvas
