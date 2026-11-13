@@ -3,10 +3,13 @@ package com.danim.autowarp
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -18,14 +21,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danim.autowarp.analysis.MarkerTouchSelection
@@ -39,15 +50,15 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private val BG = Color(0xFF05080B)
-private val CARD = Color(0xFF0D1218)
-private val TEAL = Color(0xFFFF850B)
-private val ORANGE = Color(0xFFFF850B)
+private val BG = Color.Black
+private val CARD = Color(0xFF090D11)
+private val TEAL = Color(0xFFFF8708)
+private val ORANGE = Color(0xFFFF8708)
 private val MUTED = Color(0xFFB5BBC5)
 private val PINK = Color(0xFFFF617B)
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { DaniMApp() } }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); enableEdgeToEdge(statusBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), navigationBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)); setContent { DaniMApp() } }
     override fun onStop() { AudioPreview.stop(); StreamingPreview.stop(); ContinuousAbPreview.stop(); super.onStop() }
 }
 
@@ -152,7 +163,9 @@ class MainActivity : ComponentActivity() {
                     warpQuality = restored.quality; manual = restored.manual; transientOverrides = restored.transientOverrides
                 }
                 sessionReady = true
-                fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "Audio importado"
+                fileName = ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                    ?.use { if (it.moveToFirst()) it.getString(0) else null }
+                    ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Audio importado"
                 status = "${loaded.sampleRate} Hz · ${loaded.channels} canales · ${fmt(loaded.durationSeconds, 1)} s · caché PCM ${if (cacheResult.reused) "reutilizada" else "creada"}${if (restored != null) " · sesión restaurada" else ""}"
             } catch (e: Exception) { status = "No se pudo abrir: ${e.message}" }
             finally { busy = false }
@@ -341,163 +354,276 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme(primary = TEAL, secondary = ORANGE, background = BG, surface = CARD)) {
-        Column(Modifier.fillMaxSize().background(BG).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(Modifier.fillMaxWidth().background(Color.Black, RoundedCornerShape(14.dp)).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("☰", color = Color.White, fontSize = 23.sp)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("DaniM", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
-                    Text("Auto Warp", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
-                }
-                Surface(color = ORANGE, shape = RoundedCornerShape(7.dp)) {
-                    Text("RC124", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-                }
-            }
-            Row(Modifier.fillMaxWidth().background(Color(0xFF0B1118), RoundedCornerShape(13.dp)).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                listOf("⌂\nInicio", "⇄\nProcesar", "▤\nLote", "⚙\nAjustes").forEachIndexed { i, label ->
-                    val active = i == 0
-                    Surface(modifier = Modifier.weight(1f), color = if (active) Color(0xFF45210A) else Color.Transparent, shape = RoundedCornerShape(10.dp), border = if (active) androidx.compose.foundation.BorderStroke(1.dp, ORANGE) else null) {
-                        Text(label, Modifier.padding(vertical = 9.dp), color = if (active) ORANGE else MUTED, fontSize = 13.sp, textAlign = TextAlign.Center, lineHeight = 21.sp)
-                    }
-                }
-            }
-            OutlinedButton(onClick = { ctx.startActivity(android.content.Intent(ctx, ReviewActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("REVISAR BOMBOS · ${result?.kickTimes?.size ?: 0} ATAQUES") }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                DashboardMetric("BPM", result?.let { fmt(it.bpm, 2) } ?: "—", TEAL, Modifier.weight(1f))
-                DashboardMetric("DETECCIÓN", result?.let { "${(it.confidence*100).roundToInt()}%" } ?: "—", Color.White, Modifier.weight(1f))
-                DashboardMetric("BOMBOS", result?.kickTimes?.size?.toString() ?: "—", ORANGE, Modifier.weight(1f))
-            }
-            Card(colors = CardDefaults.cardColors(containerColor = CARD), shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF263544))) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("♫  Importar audio", color = ORANGE, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(fileName, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(status, color = MUTED, fontSize = 11.sp)
-                    Button(onClick = { open.launch(arrayOf("audio/*")) }, enabled = !busy, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(13.dp), colors = ButtonDefaults.buttonColors(containerColor = TEAL, contentColor = BG)) {
-                        Text("♫  SELECCIONAR MP3 · WAV · AIFF", fontWeight = FontWeight.ExtraBold, letterSpacing = 0.2.sp)
-                    }
-                    Text("WAV  ·  MP3  ·  AIFF PCM", color = Color(0xFF64788B), fontSize = 9.sp, letterSpacing = 1.sp)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { exportProject.launch("DaniM_AutoWarp_project.json") }, enabled = pcmCacheFile != null && !busy, modifier = Modifier.weight(1f)) { Text("GUARDAR PROYECTO", fontSize = 10.sp) }
-                        OutlinedButton(onClick = { importProject.launch(arrayOf("application/json", "text/plain", "*/*")) }, enabled = pcmCacheFile != null && !busy, modifier = Modifier.weight(1f)) { Text("ABRIR PROYECTO", fontSize = 10.sp) }
-                    }
-                    Text("Primero importa el audio original; después abre su proyecto .json. El proyecto no incluye audio.", color = MUTED, fontSize = 10.sp)
-                }
-            }
-            // RC112: waveform preview uses decoded real audio peaks, never a simulated correction.
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF080C11)), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF27313C))) {
-                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("Original (desfase)", color = Color(0xFFD1D5DC), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    ReferenceWaveform(waveformPeaks, Color(0xFFA9ADB5))
-                    Text("Corregido (warp)", color = ORANGE, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    if (warpedCache != null) {
-                        Text("Render corregido disponible para escucha A/B", color = MUTED, fontSize = 11.sp)
-                    } else {
-                        Box(Modifier.fillMaxWidth().height(49.dp).background(Color(0xFF10151C), RoundedCornerShape(7.dp)), contentAlignment = Alignment.Center) {
-                            Text("Pendiente de renderizar · no se simula una onda corregida", color = MUTED, fontSize = 10.sp, textAlign = TextAlign.Center)
-                        }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { audition(false) }, enabled = audioInfo != null && !playing && !busy, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ORANGE, contentColor = Color.Black), shape = RoundedCornerShape(11.dp)) { Text("▶ Original", fontSize = 12.sp) }
-                        OutlinedButton(onClick = { audition(true) }, enabled = audioInfo != null && markers.size >= 2 && !playing && !busy, modifier = Modifier.weight(1f), shape = RoundedCornerShape(11.dp)) { Text("▶ Corregido", fontSize = 12.sp) }
-                    }
-                }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Button(onClick = {
-                    val cacheFile = pcmCacheFile ?: return@Button
-                    busy = true; status = "Analizando bombos, transitorios y variaciones…"
-                    scope.launch {
-                        try {
-                            val r = withContext(Dispatchers.IO) {
-                                Pcm16WavFileSource(cacheFile).use { BeatAnalyzer.analyze(it) }
-                            }
-                            result = r; transientOverrides = emptyMap(); markers = r.markers; warpedCache = null; undoStack = emptyList(); redoStack = emptyList()
-                            status = "Análisis completado · ${r.kickTimes.size} bombos"
-                        } catch (e: Exception) { status = "Error de análisis: ${e.message}" }
-                        finally { busy = false }
-                    }
-                }, enabled = audioInfo != null && !busy, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(13.dp), colors = ButtonDefaults.buttonColors(containerColor = ORANGE, contentColor = Color.Black)) {
-                    Text(if (busy) "PROCESANDO…" else "⚙  PROCESAR (AUTO)", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                }
-                OutlinedButton(onClick = { manual = !manual }, enabled = !busy, modifier = Modifier.height(48.dp), shape = RoundedCornerShape(13.dp), border = androidx.compose.foundation.BorderStroke(1.dp, if (manual) ORANGE else Color(0xFF405365))) {
-                    Text(if (manual) "MANUAL ON" else "MANUAL", color = if (manual) ORANGE else Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            // RC113: advanced dashboard is populated exclusively by real analysis results.
-            result?.let { analysis ->
-                var advancedTab by remember { mutableIntStateOf(0) }
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF090D12)),
-                    shape = RoundedCornerShape(17.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D))
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                        Text("Procesamiento avanzado", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            listOf("Análisis", "Warp", "Beatgrid", "Exportar").forEachIndexed { tab, label ->
-                                val selected = advancedTab == tab
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { advancedTab = tab },
-                                    shape = RoundedCornerShape(9.dp),
-                                    color = if (selected) ORANGE else Color(0xFF121820),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) ORANGE else Color(0xFF27323D))
-                                ) {
-                                    Text(label, Modifier.padding(vertical = 12.dp), textAlign = TextAlign.Center,
-                                        color = if (selected) Color.Black else Color.White, fontSize = 11.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+    var screen by rememberSaveable { mutableStateOf("Inicio") }
+    var advancedTab by rememberSaveable { mutableIntStateOf(0) }
+    var detection by rememberSaveable { mutableFloatStateOf(0f) }
+    var stabilization by rememberSaveable { mutableFloatStateOf(1f) }
+    var correctionMode by rememberSaveable { mutableIntStateOf(0) }
+    var lastDashboardCorrection by remember(pcmCacheFile, result) { mutableStateOf<List<WarpMarker>?>(null) }
+    var correctedPeaks by remember { mutableStateOf<WaveformPeaks?>(null) }
+    val dashboardScroll = rememberScrollState()
+
+    BackHandler(screen != "Inicio") { screen = "Inicio" }
+    LaunchedEffect(screen, advancedTab) { dashboardScroll.scrollTo(0) }
+    LaunchedEffect(pcmCacheFile, markers, warpEngine, warpQuality) { correctedPeaks = null }
+
+    fun prepareWaveform(preview: Boolean) {
+        val cache = pcmCacheFile ?: return
+        val activeMarkers = markers
+        if (activeMarkers.size < 2 || busy || playing) return
+        busy = true
+        status = "Renderizando la onda corregida…"
+        val engine = warpEngine
+        val quality = warpQuality
+        val events = result?.kickTimes.orEmpty().map { TransientEvent(it, TransientKind.KICK, 0.9) } +
+            result?.otherTransients.orEmpty()
+        scope.launch {
+            try {
+                val peaks = withContext(Dispatchers.IO) {
+                    val render = java.io.File.createTempFile("danim-waveform-", ".wav", ctx.cacheDir)
+                    try {
+                        render.outputStream().buffered().use { output ->
+                            if (engine == WarpEngine.WSOLA) {
+                                Pcm16WavFileSource(cache).use { source ->
+                                    StreamingWsolaProcessor.renderWav(source, activeMarkers, output, quality, events)
                                 }
+                            } else {
+                                val source = cache.inputStream().buffered().use { PcmWave.read(it) }
+                                PcmWave.write(AudioWarpEngine.render(source, activeMarkers, events, engine, quality), output)
                             }
                         }
-                        when (advancedTab) {
-                            0 -> {
-                                Text("Seguimiento de velocidad (BPM)", color = Color.White, fontWeight = FontWeight.Bold)
-                                AdvancedTempoGraph(if (analysis.barTempoCurve.size >= 2) analysis.barTempoCurve else analysis.tempoCurve)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    DashboardMetric("BPM medio", fmt(analysis.bpm, 2), ORANGE, Modifier.weight(1f))
-                                    DashboardMetric("Variación", "±${fmt(if (analysis.bpm > 0.0) 100.0 * maxOf(abs(analysis.tempoMaxBpm-analysis.bpm), abs(analysis.bpm-analysis.tempoMinBpm)) / analysis.bpm else 0.0, 2)} %", Color.White, Modifier.weight(1f))
-                                }
-                                Text("Detección de transitorios", color = Color.White, fontWeight = FontWeight.Bold)
-                                AdvancedTransientGraph(waveformPeaks, analysis.kickTimes, analysis.otherTransients, audioInfo?.durationSeconds ?: 0.0)
-                                Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-                                    listOf("Bombo" to Color(0xFFFF674C), "Caja" to Color(0xFF087FFF), "Percusión" to Color(0xFFFFB000)).forEach { (name, tint) ->
-                                        Text("● $name", color = tint, fontSize = 10.sp)
+                        Pcm16WavFileSource(render).use { WaveformPeakCache.build(it) }
+                    } finally {
+                        render.delete()
+                    }
+                }
+                if (pcmCacheFile == cache && markers == activeMarkers && engine == warpEngine && quality == warpQuality) {
+                    correctedPeaks = peaks
+                    status = "Onda corregida lista"
+                    if (preview) audition(true)
+                }
+            } catch (e: Exception) {
+                status = "Error al renderizar: ${e.message}"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun processAudio() {
+        val cache = pcmCacheFile ?: return
+        if (busy || playing) return
+        busy = true
+        status = "Analizando bombos, transitorios y variaciones…"
+        scope.launch {
+            try {
+                val analysis = withContext(Dispatchers.IO) {
+                    Pcm16WavFileSource(cache).use { BeatAnalyzer.analyze(it) }
+                }
+                result = analysis
+                transientOverrides = emptyMap()
+                markers = analysis.markers
+                warpedCache = null
+                undoStack = emptyList()
+                redoStack = emptyList()
+                status = "Análisis completado · ${analysis.kickTimes.size} bombos"
+            } catch (e: Exception) {
+                status = "Error de análisis: ${e.message}"
+                return@launch
+            } finally {
+                busy = false
+            }
+            prepareWaveform(false)
+        }
+    }
+
+    MaterialTheme(colorScheme = darkColorScheme(primary = ORANGE, secondary = ORANGE, background = BG, surface = CARD)) {
+        val analysis = result
+        val audio = audioInfo
+        val duration = audio?.durationSeconds ?: 0.0
+        val maxStart = (duration - minOf(8.0, duration)).coerceAtLeast(0.0).toFloat()
+        val canPlay = audio != null && !busy && !playing
+        val canPreview = canPlay && markers.size >= 2
+        val variation = analysis?.takeIf { it.bpm > 0.0 }?.let {
+            "±${fmt(100.0 * maxOf(abs(it.tempoMaxBpm - it.bpm), abs(it.bpm - it.tempoMinBpm)) / it.bpm, 2)} %"
+        } ?: "—"
+        val bpm = analysis?.bpm?.takeIf { it > 0.0 }?.let { fmt(it, 2) } ?: "—"
+        val correction = markers.zipWithNext().mapNotNull { (a, b) ->
+            val source = b.sourceSeconds - a.sourceSeconds
+            if (source > 0.0) (b.targetSeconds - a.targetSeconds) / source - 1.0 else null
+        }.maxByOrNull { abs(it) }?.let { String.format(Locale.US, "%+.2f %%", it * 100) } ?: "—"
+        val projectActions = DashboardActions(
+            openProject = { importProject.launch(arrayOf("application/json", "text/plain", "*/*")) },
+            saveProject = { exportProject.launch("DaniM_AutoWarp_project.json") },
+            review = { ctx.startActivity(android.content.Intent(ctx, ReviewActivity::class.java)) },
+            export = { screen = "Procesar"; advancedTab = 3 },
+        )
+
+        Column(
+            Modifier.fillMaxSize().background(BG).windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(dashboardScroll).padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            DashboardHeader(screen, { screen = "Inicio" }, audio != null && !busy && !playing, projectActions)
+            if (screen != "Procesar") {
+                DashboardTabs(listOf("Inicio", "Procesar", "Lote", "Ajustes"), listOf("home", "sliders", "file", "gear"),
+                    listOf("Inicio", "Procesar", "Lote", "Ajustes").indexOf(screen)) {
+                    screen = listOf("Inicio", "Procesar", "Lote", "Ajustes")[it]
+                    if (screen == "Procesar") advancedTab = 0
+                }
+            }
+
+            if (screen == "Inicio") {
+                DashboardImport(!busy && !playing) { open.launch(arrayOf("audio/*")) }
+                if (audio != null) {
+                    DashboardPanel {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            DashboardIcon("vinyl", Color.White, 38.dp)
+                            Column(Modifier.weight(1f)) {
+                                Text(fileName, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${fmt(audio.sampleRate / 1000.0, 1)} kHz · ${audio.channels} canales · ${dashboardTime(duration)}", color = MUTED, fontSize = 12.sp)
+                            }
+                            IconButton(onClick = {
+                                sessionReady = false
+                                audioInfo = null; importedUri = null; pcmCacheFile = null; waveformPeaks = null
+                                result = null; markers = emptyList(); warpedCache = null; correctedPeaks = null
+                                qualityReport = null; renderInfo = "Sin render todavía"
+                                abStartSeconds = 0f; status = "Importa una pista para comenzar"
+                            }, enabled = !busy && !playing) { Text("×", color = Color.White, fontSize = 27.sp, modifier = Modifier.semantics { contentDescription = "Cerrar pista" }) }
+                        }
+                    }
+                }
+                DashboardPanel {
+                    val fraction = if (maxStart > 0f) (abStartSeconds / maxStart).coerceIn(0f, 1f) else 0f
+                    Box(Modifier.fillMaxWidth().pointerInput(maxStart, canPlay) {
+                        detectTapGestures { if (canPlay && size.width > 0) abStartSeconds = (it.x / size.width).coerceIn(0f, 1f) * maxStart }
+                    }) {
+                        Column {
+                            Text("Original (desfase)", color = MUTED, fontSize = 12.sp)
+                            DashboardWave(waveformPeaks, Color(0xFF858992), 36.dp)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Corregido (warp)", color = ORANGE, fontSize = 12.sp)
+                            DashboardWave(correctedPeaks, ORANGE, 36.dp)
+                        }
+                        if (audio != null) Canvas(Modifier.matchParentSize()) {
+                            val x = size.width * fraction
+                            drawLine(Color(0xFFFFE6C7), Offset(x, 0f), Offset(x, size.height), 1.dp.toPx())
+                        }
+                    }
+                    Text("${dashboardTime(abStartSeconds.toDouble())} / ${dashboardTime(duration)}",
+                        Modifier.align(Alignment.End), color = MUTED, fontSize = 11.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        DashboardButton(if (continuousAb && abCorrected) "B/A" else "A/B", Modifier.weight(1f),
+                            (canPreview && warpEngine == WarpEngine.WSOLA) || continuousAb, filled = true) {
+                            if (continuousAb) {
+                                abCorrected = !abCorrected
+                                ContinuousAbPreview.selectCorrected(abCorrected)
+                            } else auditionContinuous()
+                        }
+                        DashboardButton("▶  A Original", Modifier.weight(1.4f), canPlay) { audition(false) }
+                        DashboardButton("▶  B Corregido", Modifier.weight(1.5f), canPreview) { audition(true) }
+                        if (playing) IconButton(onClick = { AudioPreview.stop(); StreamingPreview.stop(); ContinuousAbPreview.stop() }) {
+                            Text("■", color = ORANGE, modifier = Modifier.semantics { contentDescription = "Detener reproducción" })
+                        } else IconButton(onClick = projectActions.export) {
+                            DashboardIcon("export", Color.White, 22.dp, "Exportar")
+                        }
+                    }
+                }
+                DashboardTiles(listOf("Auto\nWarp", "Beatgrid\ninteligente", "Transitorios", "Seguimiento\nBPM"),
+                    listOf("wave", "grid", "pulse", "speed"), 0) { index ->
+                    screen = "Procesar"
+                    advancedTab = if (index == 1) 2 else 0
+                }
+                DashboardButton(if (busy) "Procesando…" else "Procesar (Auto)", Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(.86f),
+                    canPlay, filled = true, icon = "gear", large = true, onClick = ::processAudio)
+                DashboardPanel {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DashboardReading("BPM medio", bpm, Modifier.weight(1f))
+                        DashboardReading("Corrección", correction, Modifier.weight(1f))
+                        DashboardReading("Variación", variation, Modifier.weight(1f))
+                        DashboardReading("Estado", when { busy -> "En curso"; playing -> "A/B"; audio == null -> "Vacío"; else -> "Listo" },
+                            Modifier.weight(1f), if (audio != null && !busy) Color(0xFF8DE42D) else Color(0xFFFFCA8F))
+                    }
+                }
+            }
+
+            if (screen == "Procesar") {
+                DashboardTabs(listOf("Análisis", "Warp", "Beatgrid", "Exportar"), emptyList(), advancedTab) { advancedTab = it }
+            }
+
+            if (screen == "Procesar" && advancedTab == 0) {
+                DashboardPanel("Seguimiento de velocidad (BPM)") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        DashboardTempo(analysis?.let { if (it.barTempoCurve.size >= 2) it.barTempoCurve else it.tempoCurve }.orEmpty(),
+                            Modifier.weight(1f))
+                        Column(Modifier.width(84.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            DashboardPanel { DashboardReading("BPM medio", bpm, Modifier.fillMaxWidth(), Color.White) }
+                            DashboardPanel { DashboardReading("Variación", variation, Modifier.fillMaxWidth(), Color.White) }
+                        }
+                    }
+                }
+                DashboardPanel("Detección de transitorios") {
+                    AdvancedTransientGraph(waveformPeaks, analysis?.kickTimes.orEmpty(),
+                        analysis?.otherTransients.orEmpty().filter { it.confidence >= detection }, duration)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        listOf("Bombo" to KickTint, "Caja" to SnareTint, "Percusión" to PercussionTint, "Otros" to OtherTint).forEach { (label, tint) ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Dot(tint); Text(label, color = Color.White, fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+                DashboardPanel("Parámetros de procesamiento") {
+                    DashboardSlider("Confianza de caja y percusión", detection, !busy && !playing) { detection = it }
+                    DashboardSlider("Estabilización de tempo", stabilization, !busy && !playing) { stabilization = it }
+                    var chooseQuality by remember { mutableStateOf(false) }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Time-Stretch · ${if (warpEngine == WarpEngine.WSOLA) "WSOLA" else "Phase Vocoder"}", Modifier.weight(1f), fontSize = 12.sp)
+                        Box {
+                            DashboardButton(when (warpQuality) {
+                                WarpQuality.FAST -> "Rápido ▾"
+                                WarpQuality.BALANCED -> "Equilibrado ▾"
+                                WarpQuality.HIGH -> "Alta calidad ▾"
+                            }, enabled = !busy && !playing) { chooseQuality = true }
+                            DropdownMenu(chooseQuality, { chooseQuality = false }) {
+                                listOf("Rápido" to WarpQuality.FAST, "Equilibrado" to WarpQuality.BALANCED, "Alta calidad" to WarpQuality.HIGH)
+                                    .forEach { (label, quality) ->
+                                        DropdownMenuItem(text = { Text(label) }, onClick = {
+                                            chooseQuality = false; warpQuality = quality; warpedCache = null
+                                        })
                                     }
-                                }
-                                Text("La onda y los marcadores proceden del audio importado y del análisis.", color = MUTED, fontSize = 10.sp)
-                            }
-                            1 -> {
-                                Text("Calidad de render", color = Color.White, fontWeight = FontWeight.Bold)
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    listOf(Triple("Rápido", WarpQuality.FAST, "Render ágil"),
-                                        Triple("Equilibrado", WarpQuality.BALANCED, "Calidad media"),
-                                        Triple("Alta calidad", WarpQuality.HIGH, "Render detallado")).forEach { (label, quality, description) ->
-                                        OutlinedButton(onClick = { warpQuality = quality; warpedCache = null },
-                                            modifier = Modifier.weight(1f),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (warpQuality == quality) ORANGE else Color(0xFF35404B)),
-                                            contentPadding = PaddingValues(horizontal = 3.dp, vertical = 10.dp)) {
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Text(label, color = if (warpQuality == quality) ORANGE else Color.White, fontSize = 11.sp)
-                                                Text(description, color = MUTED, fontSize = 8.sp, textAlign = TextAlign.Center)
-                                            }
-                                        }
-                                    }
-                                }
-                                Text("El modo cambia la calidad del motor de render; no modifica los marcadores automáticamente.", color = MUTED, fontSize = 10.sp)
-                            }
-                            2 -> {
-                                Text("Beatgrid detectado: ${analysis.beatTimes.size} pulsos", color = Color.White)
-                                Text("Marcadores de warp: ${markers.size}", color = MUTED)
-                                Text("Ajusta los marcadores en el editor manual situado más abajo.", color = MUTED, fontSize = 11.sp)
-                            }
-                            else -> {
-                                Text("Exportación de audio", color = Color.White, fontWeight = FontWeight.Bold)
-                                Text("Utiliza los controles de exportación inferiores para renderizar y guardar el resultado real.", color = MUTED, fontSize = 11.sp)
                             }
                         }
                     }
                 }
+                DashboardPanel("Modo de corrección") {
+                    DashboardTiles(listOf("Automático\n(Recomendado)", "Suave\n(Conservar groove)", "Fuerte\n(Máxima precisión)"),
+                        listOf("target", "smooth", "bars"), correctionMode) { correctionMode = it }
+                }
+                DashboardButton("Aplicar y previsualizar", Modifier.fillMaxWidth(), canPreview, filled = true, icon = "play", large = true) {
+                    val detected = result?.markers
+                    if (detected != null && detected.size >= 2 && (markers == detected || markers == lastDashboardCorrection)) {
+                        val factor = stabilization * when (correctionMode) { 1 -> .5f; 2 -> 1f; else -> .85f }
+                        val adjusted = detected.map { it.copy(targetSeconds = it.sourceSeconds + factor * (it.targetSeconds - it.sourceSeconds)) }
+                        commitMarkers(adjusted)
+                        lastDashboardCorrection = adjusted
+                    }
+                    prepareWaveform(true)
+                }
+                if (audio != null && analysis == null && !busy) {
+                    DashboardButton("Procesar (Auto)", Modifier.fillMaxWidth(), canPlay, onClick = ::processAudio)
+                }
             }
+            if (screen == "Lote") {
+                DashboardPanel("Lote") {
+                    Text("El procesamiento por lotes aún no está disponible.", color = MUTED, fontSize = 13.sp)
+                    DashboardButton("Importar una pista", Modifier.fillMaxWidth(), !busy && !playing) { open.launch(arrayOf("audio/*")) }
+                }
+            }
+            if (busy || playing || audio != null || status.startsWith("No se pudo") || status.startsWith("Error")) {
+                Text(status, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }, color = MUTED, fontSize = 11.sp)
+            }
+            if (screen == "Procesar" && advancedTab == 0) {
             result?.let { r ->
                 SectionTitle("ANÁLISIS DE TEMPO", "TRACKING")
                 Card(colors = CardDefaults.cardColors(containerColor = CARD), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF263544))) {
@@ -593,6 +719,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            }
+            if (screen == "Ajustes" || (screen == "Procesar" && advancedTab == 1)) {
             SectionTitle("MOTOR DE PROCESAMIENTO", if (warpEngine == WarpEngine.WSOLA) "TRANSIENT-LOCK WSOLA" else "PHASE VOCODER")
             Card(colors = CardDefaults.cardColors(containerColor = CARD), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF263544))) {
                 Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -635,6 +763,12 @@ class MainActivity : ComponentActivity() {
                 }
                 Text(renderInfo, color = MUTED, fontSize = 9.sp)
                 }
+            }
+            }
+            if (screen == "Procesar" && advancedTab == 2) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DashboardButton(if (manual) "Edición manual activa" else "Editar beatgrid", Modifier.weight(1f), !busy && !playing) { manual = !manual }
+                DashboardButton("Revisar bombos", Modifier.weight(1f), !busy && !playing, onClick = projectActions.review)
             }
             SectionTitle("WAVEFORM & WARP GRID", if (manual) "EDICIÓN MANUAL" else "AUTO ALIGN")
             Card(colors = CardDefaults.cardColors(containerColor = CARD), shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF263544))) {
@@ -895,6 +1029,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            }
+            if (screen == "Procesar" && advancedTab == 1) {
             SectionTitle("MONITORIZACIÓN", "A / B · FRAGMENTO SINCRONIZADO")
             Card(colors = CardDefaults.cardColors(containerColor = CARD), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF263544))) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -930,6 +1066,8 @@ class MainActivity : ComponentActivity() {
                 OutlinedButton(onClick = { audition(true) }, enabled = audioInfo != null && markers.size >= 2 && !playing && !busy, modifier = Modifier.weight(1f).height(45.dp), shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, TEAL)) { Text("▶ CORREGIDO", color = TEAL, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                 OutlinedButton(onClick = { AudioPreview.stop(); StreamingPreview.stop(); ContinuousAbPreview.stop(); playing = false; status = "Reproducción detenida" }, enabled = playing, modifier = Modifier.height(45.dp), shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, PINK)) { Text("■", color = PINK) }
             }
+            }
+            if (screen == "Procesar" && advancedTab == 3) {
             Text("FORMATO DE EXPORTACIÓN", color = MUTED, fontSize = 11.sp)
             HighResolutionAudioExport.Format.entries.chunked(2).forEach { formats ->
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -958,7 +1096,8 @@ class MainActivity : ComponentActivity() {
             OutlinedButton(onClick = { saveGrid.launch("DaniM_Beatgrid.csv") }, enabled = result != null && result!!.beatTimes.isNotEmpty() && !busy, modifier = Modifier.fillMaxWidth().height(44.dp), shape = RoundedCornerShape(12.dp)) {
                 Text("⇩  EXPORTAR BEATGRID CSV", color = TEAL, fontWeight = FontWeight.Bold, fontSize = 11.sp)
             }
-            if (markers.isNotEmpty()) {
+            }
+            if (screen == "Procesar" && advancedTab == 2 && markers.isNotEmpty()) {
                 SectionTitle("PUNTOS DE CONTROL", "${markers.size} TOTAL")
                 Card(colors = CardDefaults.cardColors(containerColor = CARD), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.padding(horizontal = 13.dp, vertical = 6.dp)) {
@@ -976,16 +1115,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            Text("DANIM AUTO WARP  ·  PROCESAMIENTO LOCAL  ·  v3.6", color = Color(0xFF526477), fontSize = 8.sp, letterSpacing = 1.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = TextAlign.Center)
-        }
-    }
-}
-
-@Composable private fun DashboardMetric(label: String, value: String, tint: Color, modifier: Modifier = Modifier) {
-    Card(modifier, colors = CardDefaults.cardColors(containerColor = Color(0xFF101925)), shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF263544))) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(label, color = MUTED, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
-            Text(value, color = tint, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
     }
 }
@@ -1000,60 +1129,6 @@ class MainActivity : ComponentActivity() {
     Column { Text(label, color = MUTED, fontSize = 8.sp, fontWeight = FontWeight.Bold); Text(value, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
 }
 @Composable private fun Dot(color: Color) { Box(Modifier.size(7.dp).background(color, CircleShape)) }
-/** A compact real-peak waveform matching the reference's symmetrical silhouette. */
-@Composable private fun ReferenceWaveform(peaks: WaveformPeaks?, tint: Color) {
-    Canvas(Modifier.fillMaxWidth().height(58.dp).background(Color(0xFF10151C), RoundedCornerShape(7.dp))) {
-        val samples = peaks?.peaks ?: return@Canvas
-        if (samples.isEmpty()) return@Canvas
-        val width = size.width
-        val mid = size.height / 2f
-        val columns = (width / 2.5f).toInt().coerceIn(1, 4096)
-        for (i in 0 until columns) {
-            val from = i.toLong() * samples.size / columns
-            val to = ((i + 1).toLong() * samples.size / columns).coerceAtMost(samples.size.toLong())
-            var amplitude = 0f
-            for (j in from.toInt() until maxOf(from.toInt() + 1, to.toInt()).coerceAtMost(samples.size)) {
-                val sample = samples[j]
-                if (sample.isFinite()) amplitude = maxOf(amplitude, kotlin.math.abs(sample))
-            }
-            val h = (amplitude.coerceIn(0f, 1f) * mid * .92f).coerceAtLeast(1f)
-            val x = (i + .5f) / columns * width
-            drawLine(tint, Offset(x, mid - h), Offset(x, mid + h), strokeWidth = 1.6.dp.toPx())
-        }
-        drawLine(Color(0xFFFFE1B6), Offset(width / 2f, 0f), Offset(width / 2f, size.height), strokeWidth = 1.dp.toPx())
-    }
-}
-
-// RC114: plots the actual timeline, not the index of a potentially irregular sample.
-@Composable private fun AdvancedTempoGraph(points: List<Pair<Double, Double>>) {
-    Canvas(Modifier.fillMaxWidth().height(125.dp).background(Color(0xFF070A0E), RoundedCornerShape(9.dp))) {
-        for (i in 0..4) {
-            val y = size.height * i / 4f
-            drawLine(Color(0xFF26323E), Offset(0f, y), Offset(size.width, y), 0.8.dp.toPx())
-        }
-        for (i in 0..8) {
-            val x = size.width * i / 8f
-            drawLine(Color(0xFF26323E), Offset(x, 0f), Offset(x, size.height), 0.8.dp.toPx())
-        }
-        val valid = points.filter { it.first.isFinite() && it.second.isFinite() && it.second > 0.0 }
-            .sortedBy { it.first }
-        if (valid.size >= 2) {
-            val minTime = valid.first().first
-            val duration = (valid.last().first - minTime).coerceAtLeast(0.001)
-            val low = valid.minOf { it.second } - 0.3
-            val span = (valid.maxOf { it.second } - low + 0.3).coerceAtLeast(0.6)
-            for (i in 1 until valid.size) {
-                val a = Offset(((valid[i-1].first-minTime)/duration).toFloat()*size.width,
-                    size.height*(1f-((valid[i-1].second-low)/span).toFloat()))
-                val b = Offset(((valid[i].first-minTime)/duration).toFloat()*size.width,
-                    size.height*(1f-((valid[i].second-low)/span).toFloat()))
-                drawLine(ORANGE, a, b, 1.7.dp.toPx())
-            }
-        }
-    }
-}
-
-// RC115: real cached audio waveform, colored cyan/blue, with analyzed transient markers.
 @Composable private fun AdvancedTransientGraph(
     waveform: WaveformPeaks?, kicks: List<Double>, others: List<TransientEvent>, duration: Double
 ) {
@@ -1081,12 +1156,13 @@ class MainActivity : ComponentActivity() {
             }
         }
         // Events are measured onset times, not fabricated peaks.
-        val events = kicks.map { it to Color(0xFFFF674C) } +
+        val events = kicks.map { it to KickTint } +
             others.map { event ->
                 event.seconds to when (event.kind) {
-                    TransientKind.SNARE -> Color(0xFF087FFF)
-                    TransientKind.PERCUSSION, TransientKind.HI_HAT -> Color(0xFFFFB000)
-                    TransientKind.KICK -> Color(0xFFFF674C)
+                    TransientKind.SNARE -> SnareTint
+                    TransientKind.PERCUSSION -> PercussionTint
+                    TransientKind.HI_HAT -> OtherTint
+                    TransientKind.KICK -> KickTint
                 }
             }
         events.filter { it.first.isFinite() && it.first in 0.0..duration }.forEach { (seconds, tint) ->
@@ -1253,3 +1329,304 @@ private data class AudioFileInfo(val sampleRate: Int, val channels: Int, val fra
 }
 
 private fun fmt(value: Double, decimals: Int = 1): String = String.format(Locale.US, "%1$.${decimals}f", value)
+
+private val PanelBorder = Color(0xFF242B31)
+private val KickTint = Color(0xFFFF6046)
+private val SnareTint = Color(0xFF087FFF)
+private val PercussionTint = Color(0xFFFFB400)
+private val OtherTint = Color(0xFFAD46D7)
+private val OrangeGradient = Brush.verticalGradient(listOf(Color(0xFFFFAA30), Color(0xFFFF7300)))
+private val DarkGradient = Brush.verticalGradient(listOf(Color(0xFF101519), Color(0xFF06090C)))
+
+private data class DashboardActions(
+    val openProject: () -> Unit,
+    val saveProject: () -> Unit,
+    val review: () -> Unit,
+    val export: () -> Unit,
+)
+
+@Composable
+private fun DashboardHeader(screen: String, back: () -> Unit, projectEnabled: Boolean, actions: DashboardActions) {
+    var menu by remember { mutableStateOf(false) }
+    val home = screen == "Inicio"
+    Row(
+        Modifier.fillMaxWidth().height(if (home) 69.dp else 54.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = { if (home) menu = true else back() }) {
+            DashboardIcon(if (home) "menu" else "back", Color.White, 23.dp, if (home) "Menú" else "Volver")
+        }
+        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            if (home) {
+                Canvas(Modifier.matchParentSize()) {
+                    val middle = size.height * .56f
+                    val amplitudes = listOf(.04f, .10f, .27f, .17f, .59f, .36f, .85f, .45f, .29f, .16f, .39f, .08f)
+                    drawLine(Brush.horizontalGradient(listOf(Color.Transparent, ORANGE, Color.Transparent)),
+                        Offset(0f, middle), Offset(size.width, middle), 1.dp.toPx())
+                    for (side in listOf(0f, .73f)) {
+                        amplitudes.forEachIndexed { index, amplitude ->
+                            val x = size.width * (side + .04f + index * .016f)
+                            val height = size.height * .37f * amplitude
+                            drawLine(ORANGE.copy(alpha = if (side == 0f) .9f else .46f),
+                                Offset(x, middle - height), Offset(x, middle + height), 1.35.dp.toPx(), StrokeCap.Round)
+                        }
+                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((-6).dp)) {
+                    val italic = androidx.compose.ui.text.font.FontStyle.Italic
+                    Text("DaniM", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.Black, fontStyle = italic)
+                    Text("Auto Warp", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black, fontStyle = italic, maxLines = 1)
+                }
+                Text("RC125", Modifier.align(Alignment.BottomEnd).padding(bottom = 4.dp)
+                    .background(OrangeGradient, RoundedCornerShape(5.dp)).padding(horizontal = 4.dp, vertical = 2.dp),
+                    color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            } else {
+                Text(if (screen == "Procesar") "Procesamiento avanzado" else screen,
+                    color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Box {
+            IconButton(onClick = { menu = true }) { DashboardIcon("more", Color.White, 21.dp, "Opciones") }
+            DropdownMenu(menu, { menu = false }) {
+                DropdownMenuItem(text = { Text("Abrir proyecto") }, enabled = projectEnabled, onClick = { menu = false; actions.openProject() })
+                DropdownMenuItem(text = { Text("Guardar proyecto") }, enabled = projectEnabled, onClick = { menu = false; actions.saveProject() })
+                DropdownMenuItem(text = { Text("Revisar bombos") }, onClick = { menu = false; actions.review() })
+                DropdownMenuItem(text = { Text("Exportar") }, onClick = { menu = false; actions.export() })
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardPanel(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(11.dp)
+    Column(Modifier.fillMaxWidth().background(DarkGradient, shape).border(1.dp, PanelBorder, shape).padding(9.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        title?.let { Text(it, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+        content()
+    }
+}
+
+@Composable
+private fun DashboardImport(enabled: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(13.dp)
+    Box(Modifier.fillMaxWidth().height(126.dp).clip(shape).background(DarkGradient)
+        .clickable(enabled = enabled, role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.matchParentSize()) {
+            val inset = 1.dp.toPx()
+            drawRoundRect(ORANGE.copy(alpha = .66f), topLeft = Offset(inset, inset),
+                size = androidx.compose.ui.geometry.Size(size.width - 2 * inset, size.height - 2 * inset),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()),
+                style = Stroke(1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx()))))
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            DashboardIcon("folder", Color.White, 38.dp)
+            Text("Importar audio", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text("MP3 · WAV · AIFF", color = MUTED, fontSize = 12.sp)
+            Text("Pulsa para seleccionar", color = MUTED, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun DashboardTabs(labels: List<String>, icons: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Row(Modifier.fillMaxWidth().background(DarkGradient, shape).border(1.dp, PanelBorder, shape).padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        labels.forEachIndexed { index, label ->
+            val active = selected == index
+            val icon = icons.getOrNull(index)
+            val tabShape = RoundedCornerShape(8.dp)
+            val background = when {
+                active && icon == null -> OrangeGradient
+                active -> Brush.verticalGradient(listOf(Color(0xFF211309), Color(0xFF623100)))
+                else -> Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+            }
+            Box(Modifier.weight(1f).height(if (icon == null) 36.dp else 52.dp).clip(tabShape)
+                .background(background).clickable(role = Role.Tab) { onSelect(index) }
+                .semantics { this.selected = active }, contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    if (icon != null) DashboardIcon(icon, if (active) ORANGE else Color(0xFF9AB4C6), 19.dp)
+                    Text(label, color = if (active && icon == null) Color.Black else Color.White,
+                        fontSize = 12.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+                }
+                if (active && icon != null) Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth(.86f).height(3.dp)
+                    .background(OrangeGradient, RoundedCornerShape(4.dp)))
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardTiles(labels: List<String>, icons: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        labels.forEachIndexed { index, label ->
+            val active = index == selected
+            val shape = RoundedCornerShape(10.dp)
+            Column(Modifier.weight(1f).height(71.dp).clip(shape)
+                .background(if (active) Brush.verticalGradient(listOf(Color(0xFF231307), Color(0xFF4C2300))) else DarkGradient)
+                .border(1.dp, if (active) ORANGE else PanelBorder, shape)
+                .clickable(role = Role.Button) { onSelect(index) }.semantics { this.selected = active },
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically)) {
+                DashboardIcon(icons[index], if (active) ORANGE else Color.White, 23.dp)
+                Text(label, color = Color.White, fontSize = 11.sp, lineHeight = 13.sp, textAlign = TextAlign.Center, maxLines = 2)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardButton(
+    label: String, modifier: Modifier = Modifier, enabled: Boolean = true, filled: Boolean = false,
+    icon: String? = null, large: Boolean = false, onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(if (large) 14.dp else 9.dp)
+    val color = if (!enabled) Color(0xFF82909B) else if (filled) Color.Black else Color.White
+    Row(modifier.height(if (large) 48.dp else 37.dp).clip(shape)
+        .background(if (filled && enabled) OrangeGradient else DarkGradient)
+        .border(1.dp, if (filled && enabled) Color(0xFFDB6900) else PanelBorder, shape)
+        .clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+        if (icon != null) DashboardIcon(icon, color, if (large) 23.dp else 16.dp)
+        Text(label, color = color, fontSize = if (large) 17.sp else 11.sp,
+            fontWeight = if (large || filled) FontWeight.Black else FontWeight.Medium, textAlign = TextAlign.Center, maxLines = 1)
+    }
+}
+
+@Composable
+private fun DashboardReading(label: String, value: String, modifier: Modifier = Modifier, color: Color = Color(0xFFFFCA8F)) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, color = Color(0xFF9EB8C6), fontSize = 10.sp, maxLines = 1)
+        Text(value, color = color, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun DashboardSlider(label: String, value: Float, enabled: Boolean, onChange: (Float) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        Text(label, Modifier.weight(1.05f), color = Color.White, fontSize = 11.sp)
+        Slider(value, onChange, Modifier.weight(1.2f).height(34.dp).semantics { contentDescription = label }, enabled = enabled)
+        Text("${(value * 100).roundToInt()} %", Modifier.width(37.dp), fontSize = 10.sp, textAlign = TextAlign.End)
+    }
+    HorizontalDivider(color = PanelBorder)
+}
+
+@Composable
+private fun DashboardWave(peaks: WaveformPeaks?, tint: Color, height: Dp) {
+    Canvas(Modifier.fillMaxWidth().height(height)) {
+        val middle = size.height / 2f
+        drawLine(PanelBorder, Offset(0f, middle), Offset(size.width, middle), 1.dp.toPx())
+        val samples = peaks?.peaks ?: return@Canvas
+        if (samples.isEmpty()) return@Canvas
+        val columns = size.width.toInt().coerceIn(1, 4096)
+        for (column in 0 until columns) {
+            val start = (column.toLong() * samples.size / columns).toInt()
+            val end = (((column + 1L) * samples.size + columns - 1) / columns).toInt().coerceAtMost(samples.size)
+            var peak = 0f
+            for (index in start until end) {
+                val sample = samples[index]
+                if (sample.isFinite()) peak = maxOf(peak, abs(sample))
+            }
+            val x = (column + .5f) * size.width / columns
+            val radius = peak.coerceIn(0f, 1f) * middle
+            drawLine(tint, Offset(x, middle - radius), Offset(x, middle + radius), size.width / columns)
+        }
+    }
+}
+
+@Composable
+private fun DashboardTempo(points: List<Pair<Double, Double>>, modifier: Modifier = Modifier) {
+    val valid = remember(points) { points.filter { it.first.isFinite() && it.second.isFinite() && it.second > 0.0 }.sortedBy { it.first } }
+    val low = (valid.minOfOrNull { it.second } ?: 0.0) - .25
+    val high = (valid.maxOfOrNull { it.second } ?: 0.0) + .25
+    Row(modifier.height(94.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(Modifier.width(31.dp).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+            repeat(5) { Text(if (valid.isEmpty()) "—" else fmt(high - it * (high - low) / 4, 1), color = Color(0xFF86B9CE), fontSize = 9.sp) }
+        }
+        Canvas(Modifier.weight(1f).fillMaxHeight()) {
+            val grid = Color(0xFF263038)
+            for (i in 0..4) {
+                val y = size.height * i / 4f
+                drawLine(grid, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+            }
+            for (i in 0..8) {
+                val x = size.width * i / 8f
+                drawLine(grid, Offset(x, 0f), Offset(x, size.height), 1.dp.toPx())
+            }
+            if (valid.size < 2) return@Canvas
+            val start = valid.first().first
+            val duration = (valid.last().first - start).coerceAtLeast(.001)
+            val line = Path()
+            valid.forEachIndexed { index, (time, bpm) ->
+                val x = ((time - start) / duration).toFloat() * size.width
+                val y = ((high - bpm) / (high - low)).toFloat() * size.height
+                if (index == 0) line.moveTo(x, y) else line.lineTo(x, y)
+            }
+            drawPath(line, ORANGE.copy(alpha = .15f), style = Stroke(5.dp.toPx()))
+            drawPath(line, ORANGE, style = Stroke(1.4.dp.toPx()))
+        }
+    }
+}
+
+private fun dashboardTime(seconds: Double): String {
+    val time = seconds.toLong().coerceAtLeast(0)
+    return String.format(Locale.US, "%02d:%02d", time / 60, time % 60)
+}
+
+@Composable
+private fun DashboardIcon(name: String, tint: Color, sizeDp: Dp, description: String? = null) {
+    val modifier = Modifier.size(sizeDp)
+    Canvas(if (description == null) modifier else modifier.semantics { contentDescription = description }) {
+        val u = size.width / 24f
+        fun point(x: Int, y: Int) = Offset(x * u, y * u)
+        fun line(x: Int, y: Int, endX: Int, endY: Int) {
+            drawLine(tint, point(x, y), point(endX, endY), u * 1.8f, StrokeCap.Round)
+        }
+        fun poly(vararg coordinates: Int) {
+            for (i in 0 until coordinates.size - 2 step 2) line(coordinates[i], coordinates[i + 1], coordinates[i + 2], coordinates[i + 3])
+        }
+        fun ring(radius: Float, x: Int = 12, y: Int = 12) {
+            drawCircle(tint, radius * u, point(x, y), style = Stroke(u * 1.7f))
+        }
+        when (name) {
+            "menu" -> listOf(6, 12, 18).forEach { line(3, it, 21, it) }
+            "more" -> listOf(5, 12, 19).forEach { drawCircle(tint, u * 1.6f, point(12, it)) }
+            "back" -> { poly(11, 5, 4, 12, 11, 19); line(5, 12, 21, 12) }
+            "home" -> poly(2, 11, 12, 3, 22, 11, 19, 11, 19, 21, 14, 21, 14, 15, 10, 15, 10, 21, 5, 21, 5, 11, 2, 11)
+            "sliders" -> {
+                listOf(5, 12, 19).forEach { line(3, it, 21, it) }
+                line(9, 2, 9, 8); line(16, 9, 16, 15); line(7, 16, 7, 22)
+            }
+            "file" -> { poly(5, 2, 14, 2, 20, 8, 20, 22, 5, 22, 5, 2); poly(14, 2, 14, 8, 20, 8); line(8, 12, 17, 12); line(8, 16, 17, 16) }
+            "folder" -> { poly(2, 7, 2, 21, 22, 21, 22, 7, 11, 7, 8, 3, 4, 3, 2, 5, 2, 7); poly(12, 16, 12, 10, 16, 12); drawCircle(tint, 1.5f * u, point(11, 16)) }
+            "vinyl" -> {
+                drawCircle(Brush.radialGradient(listOf(Color(0xFF3D4147), Color(0xFF050608), Color(0xFF4A4D50))), radius = 11 * u)
+                ring(10.5f); ring(7.5f); drawCircle(tint, 4.4f * u); drawCircle(Color.Black, 1.2f * u)
+            }
+            "gear" -> {
+                ring(7.5f); ring(3f)
+                poly(3, 3, 6, 6); poly(18, 18, 21, 21); poly(3, 21, 6, 18); poly(18, 6, 21, 3)
+                line(12, 1, 12, 4); line(12, 20, 12, 23); line(1, 12, 4, 12); line(20, 12, 23, 12)
+            }
+            "wave" -> listOf(2, 5, 11, 6, 9, 4, 2).forEachIndexed { index, height ->
+                line(3 + 3 * index, 12 - height, 3 + 3 * index, 12 + height)
+            }
+            "pulse" -> poly(1, 12, 6, 12, 9, 5, 12, 20, 15, 8, 18, 12, 23, 12)
+            "grid" -> listOf(5, 12, 19).forEach { line(2, it, 22, it); line(it, 2, it, 22) }
+            "speed" -> { ring(9f); line(12, 12, 17, 7); line(12, 3, 12, 6); line(3, 12, 6, 12); line(18, 12, 21, 12) }
+            "target" -> { ring(9f); ring(5f); ring(1.2f); line(13, 11, 22, 2) }
+            "smooth" -> {
+                val curve = Path().apply {
+                    moveTo(u, u * 14)
+                    cubicTo(6 * u, 14 * u, 6 * u, 4 * u, 12 * u, 11 * u)
+                    cubicTo(17 * u, 18 * u, 18 * u, 16 * u, 23 * u, 10 * u)
+                }
+                drawPath(curve, tint, style = Stroke(u * 1.8f, cap = StrokeCap.Round))
+            }
+            "bars" -> listOf(7, 10, 14, 19).forEachIndexed { index, height -> line(4 + 5 * index, 21, 4 + 5 * index, 21 - height) }
+            "export" -> { poly(12, 4, 4, 4, 4, 21, 20, 21, 20, 12); poly(13, 3, 21, 3, 21, 10); line(11, 13, 21, 3) }
+            "play" -> drawPath(Path().apply { moveTo(6 * u, 3 * u); lineTo(21 * u, 12 * u); lineTo(6 * u, 21 * u); close() }, tint)
+        }
+    }
+}
