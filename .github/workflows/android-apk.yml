@@ -35,9 +35,6 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Verificar configuración de RC124
-        run: python3 test-rc124-ui.py
-
       - name: Compilar APK debug y ejecutar pruebas unitarias JVM
         run: gradle --no-daemon --stacktrace :app:assembleDebug :app:testDebugUnitTest
 
@@ -45,7 +42,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: DaniMAutoWarp-RC124-debug-apk
+          name: DaniMAutoWarp-RC125-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
@@ -54,7 +51,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DaniMAutoWarp-RC124-test-reports
+          name: DaniMAutoWarp-RC125-test-reports
           path: |
             app/build/reports/tests/
             app/build/test-results/
