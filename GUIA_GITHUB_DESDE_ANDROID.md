@@ -1,27 +1,36 @@
-# Compilar DaniM Auto Warp desde un movil Android
+# Subir RC123 y compilar el APK
 
-## Preparacion (una sola vez)
-1. Crea una cuenta gratuita en https://github.com/ si no tienes una.
-2. En el navegador del movil entra en https://github.com/new y crea un repositorio **privado** vacio, sin README inicial.
-3. Extrae el ZIP de este proyecto en el telefono. Debes subir **el contenido** de la carpeta extraida a la raiz del repositorio, conservando subcarpetas como `app/` y `.github/workflows/`.
-4. GitHub web no siempre permite subir una carpeta entera comodamente desde Android y puede ocultar `.github` por ser una carpeta con punto. Puedes usar un cliente Git para Android compatible con subir carpetas y archivos ocultos, o un servicio de importacion de repositorios. Comprueba en GitHub que existen `app/build.gradle.kts`, `settings.gradle.kts` y `.github/workflows/android-apk.yml`.
-5. La rama principal debe llamarse `main`.
+Repositorio: https://github.com/kyroo63-dev/DaniMAutoWarp
 
-## Lanzar la compilacion
-1. Abre tu repositorio en GitHub y entra en la pestana **Actions**.
-2. Selecciona **Compilar APK DaniM Auto Warp**.
-3. Pulsa **Run workflow** y confirma la rama `main`.
-4. Espera a que termine el trabajo **build-debug-apk** (verde significa que ha terminado correctamente).
-5. Abre la ejecucion terminada, baja hasta **Artifacts** y descarga `DaniMAutoWarp-RC110-debug-apk`.
-6. Extrae ese ZIP y abre el fichero `app-debug.apk` en tu Android para instalarlo.
+**Estado verificado:** el conector GitHub permite lectura pero devuelve HTTP 403
+`Resource not accessible by integration` al escribir. Por ello no se ha
+subido RC123 ni lanzado una compilación.
 
-## Si falla
-- Entra en la ejecucion roja > `build-debug-apk` > `Compilar APK debug`.
-- Copia el primer error real del registro, especialmente `e: ...`, `FAILURE:` o `What went wrong`.
-- Enviame el error para corregir el codigo o la configuracion.
+## Método recomendado: ordenador con Git instalado
 
-## Limitaciones
-- Este paquete incluye un flujo de compilacion, **no un APK ya compilado**.
-- El proyecto aun no ha superado una compilacion Android verificada; pueden aparecer errores del codigo fuente.
-- El APK debug esta firmado automaticamente con una clave de desarrollo y no es adecuado para distribucion publica.
-- Los artifacts de GitHub caducan (configurados a 14 dias).
+1. Descomprime este ZIP conservando todas las carpetas, incluida `.github`.
+2. Abre una terminal dentro de la carpeta descomprimida.
+3. Configura el acceso a GitHub en tu ordenador (por ejemplo, Git Credential Manager).
+4. Comprueba los cambios propuestos: `python sincronizar_github.py`
+5. Si estás de acuerdo, publícalos: `python sincronizar_github.py --push`
+
+El script clona la rama `main`, copia los archivos del proyecto y crea un
+commit. No elimina archivos existentes en GitHub que falten en el ZIP.
+No requiere pegar contraseñas ni tokens dentro del código.
+
+## Desde Android
+
+Puedes usar un cliente Git para Android que admita carpetas ocultas o un
+entorno de terminal con Git y Python. Extrae el ZIP, conserva `.github/`,
+y ejecuta los mismos comandos. La interfaz web de GitHub no es adecuada
+para subir cientos de archivos manteniendo su estructura.
+
+## Obtener el APK
+
+Entra en https://github.com/kyroo63-dev/DaniMAutoWarp/actions,
+selecciona `Compilar APK DaniM Auto Warp`, abre la ejecución reciente y,
+si finaliza correctamente, descarga el artefacto
+`DaniMAutoWarp-RC123-debug-apk` (contiene `app-debug.apk`).
+Si falla, revisa el primer error de `Compilar APK debug` y compártelo.
+
+**No hay APK compilado ni pruebas Android ejecutadas en esta entrega.**
